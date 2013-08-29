@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+
+# Usage:
+# (sh) paste2 perl Paste2 CLI script <paste2.pl
+# (vim) :w !paste2 perl Paste2 CLI script
+
+use URI::Escape;
+use IO::Socket::INET;
+
+my $lang, $desc;
+
+$lang = (shift or 'text');
+if (@ARGV) {
+	$desc = join ' ', @ARGV;
+} else {
+	$desc = '';
+}
+
+my $code = do {
+	local $/ = undef;
+	<STDIN>;
+};
+
+my @fields = (
+	'lang='.uri_escape($lang),
+	'description='.uri_escape($desc),
+	'code='.uri_escape($code),
+	'parent=0',
+);
+my $cont = join('&', @fields)."\r\n";
+my $len = length($cont);
+
+my $s = IO::Socket::INET->new('paste2.org:80');
+my $out = "";
+$out .= "POST /new-paste HTTP/1.1\r\n";
+$out .= "Host: paste2.org\r\n";
+$out .= "User-Agent: Paster/1.0\r\n";
+$out .= "Content-Type: application/x-www-form-urlencoded\r\n";
+$out .= "Content-Length: $len\r\n";
+$out .= "Connection: Close\r\n";
+$out .= "\r\n";
+$out .= $cont;
+$out .= "\r\n";
+
+print $s $out;
+while (<$s>) {
+	if (s/^Location: //) {
+		print "http://paste2.org".$_;
+		last;
+	}
+}
